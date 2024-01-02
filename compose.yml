@@ -1,0 +1,69 @@
+version: "3.9"
+
+services:
+  zook-container:
+    extends:
+      file: common-config-template.yml
+      service: common-config-template
+    image: serhiihladyr/zook-compose-1:02
+    container_name: zook-container
+    domainname: zook.cluster.local
+    hostname: zook.host.local
+    working_dir: /opt/zookeeper
+    command: sh -c "echo ==============   Hello Zookeeper  =============="
+    env_file:
+      - ./env-zook.env
+    networks:
+      macvlan-net:
+        ipv4_address: 192.168.65.4
+    ports:
+      - "2181:2181"
+      - protocol: tcp
+    healthcheck:
+      test: [ "CMD-SHELL", "echo Waiting for ZOOKEEPER to be ready... && \ 
+                            nc -z localhost 2181 || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  kaff-container:
+    extends:
+      file: common-config-template.yml
+      service: common-config-template
+    image: serhiihladyr/kaff-compose-1:02
+    container_name: kaff-container
+    domainname: kaff.cluster.local
+    hostname: kaff.host.local
+    working_dir: /opt/kafka
+    depends_on:
+      - zook-container
+    env_file:
+      - ./env-kaff.env
+    networks:
+      macvlan-net:
+        ipv4_address: 192.168.65.8
+    ports:
+      - "9092:9092"
+      - protocol: tcp
+    healthcheck:
+      test: [ "CMD-SHELL", "echo Waiting for KAFKA to be ready... && \
+                            nc -z localhost 9092 || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  shared-empty-dir:
+
+networks:
+  macvlan-net:
+    driver: macvlan
+    ipam:
+      config:
+        - subnet: 192.168.65.0/28
+
+secrets:
+   datadog-api-key:
+     file: secrets.yml
